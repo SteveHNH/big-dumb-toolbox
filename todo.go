@@ -49,6 +49,35 @@ func generateTodoID() string {
 	return fmt.Sprintf("todo_%d", time.Now().UnixNano())
 }
 
+func formatTimeRelative(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+	
+	if diff < time.Minute {
+		return "just now"
+	} else if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if diff < 7*24*time.Hour {
+		days := int(diff.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2, 2006")
+	}
+}
+
 func (m model) updateTodoList(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -92,6 +121,12 @@ func (m model) updateTodoList(msg tea.Msg) (tea.Model, tea.Cmd) {
 					for i := range m.todoItems {
 						if m.todoItems[i].ID == targetID {
 							m.todoItems[i].Completed = !m.todoItems[i].Completed
+							if m.todoItems[i].Completed {
+								now := time.Now()
+								m.todoItems[i].CompletedAt = &now
+							} else {
+								m.todoItems[i].CompletedAt = nil
+							}
 							break
 						}
 					}
@@ -276,12 +311,17 @@ func (m model) viewTodoList() string {
 			
 			status := "☐"
 			text := todo.Text
+			timeInfo := fmt.Sprintf(" (created %s)", formatTimeRelative(todo.CreatedAt))
+			
 			if todo.Completed {
 				status = "✅"
 				text = completedStyle.Render(text)
+				if todo.CompletedAt != nil {
+					timeInfo = fmt.Sprintf(" (completed %s)", formatTimeRelative(*todo.CompletedAt))
+				}
 			}
 			
-			todoDisplay.WriteString(style.Render(fmt.Sprintf("%s%s %s", cursor, status, text)) + "\n")
+			todoDisplay.WriteString(style.Render(fmt.Sprintf("%s%s %s%s", cursor, status, text, timeInfo)) + "\n")
 		}
 	}
 	
